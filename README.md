@@ -13,7 +13,7 @@
 
 ## 📖 About
 
-This project is an open-source tool designed to help developers and students master prompt engineering for OCR tasks. It uses an iterative "teacher-student" loop where a stronger model (like GPT-5) critiques and improves the prompts used by a faster/cheaper model (like GPT-4o-mini or Gemini Flash).
+This project is an open-source tool designed to help developers and students master prompt engineering for OCR tasks. It uses an iterative "teacher-student" loop where a stronger model (like GPT-4o) critiques and improves the prompts used by a faster/cheaper model (like GPT-4o-mini or Gemini Flash).
 
 **Author:** [ayam04](https://github.com/ayam04)
 
@@ -23,14 +23,15 @@ This project is an open-source tool designed to help developers and students mas
 -   **🔄 Feedback Loop:** Uses a "teacher" model to analyze errors and suggest specific fixes.
 -   **📊 Local Vector Scoring:** Evaluates output quality using cosine similarity with [fastembed](https://github.com/qdrant/fastembed) (no API costs!).
 -   **🔌 Multi-Provider Support:** Seamlessly switch between OpenAI and Google Gemini models.
--   **📂 Custom Dataset Support:** easily plug in your own images and target JSONs.
+-   **📂 Multi-Sample Support:** Process multiple samples automatically - just add folders to the Dataset directory.
+
 
 ## 🛠️ Installation
 
 1.  **Clone the repository**
     ```bash
     git clone https://github.com/learnoAI/prompt-optimization.git
-    cd gepa-tests
+    cd prompt-optimization
     ```
 
 2.  **Install dependencies**
@@ -45,18 +46,20 @@ This project is an open-source tool designed to help developers and students mas
     GEMINI_API_KEY=your_gemini_key
     ```
 
+
 ## 🚀 Usage
 
 Run the optimizer via the CLI. The tool uses two models:
-1.  **Student Model (Test Model):** The generally smaller/cheaper model you want to optimize the prompt for (e.g., `gpt-4o-mini`, `gemini-2.0-flash`).
-2.  **Teacher Model (Improve Model):** A stronger, reasoning-capable model that analyzes errors and writes better prompts (e.g., `gpt-5`, `gemini-3-pro-preview`).
+1.  **Student Model (Test Model):** The smaller/cheaper model you want to optimize the prompt for.
+2.  **Teacher Model (Improve Model):** A stronger model that analyzes errors and writes better prompts.
+
 
 > [!TIP]
-> The provider (OpenAI or Gemini) is **automatically detected** from the model name. No need to specify it manually!
+> The provider (OpenAI or Gemini) is **automatically detected** from the model name!
 
 ```bash
 # Example: Using OpenAI models
-python main.py --iterations 10 --test-model gpt-4o-mini --improve-model gpt-5
+python main.py --iterations 5 --test-model gpt-4o-mini --improve-model gpt-5
 
 # Example: Using Gemini models
 python main.py --iterations 5 --test-model gemini-2.0-flash --improve-model gemini-3-pro-preview
@@ -66,31 +69,46 @@ python main.py --iterations 5 --test-model gemini-2.0-flash --improve-model gemi
 | :--- | :--- | :--- |
 | `--dataset` | Path to dataset directory | `Dataset` |
 | `--iterations` | Number of optimization loops | `10` |
-| `--test-model` | **Student:** Model to accept the prompt | `gpt-4o-mini` |
+| `--test-model` | **Student:** Model to test prompts | `gpt-4o-mini` |
 | `--improve-model` | **Teacher:** Model for feedback | `gpt-5` |
 
-## 📂 bringing Your Own Data
 
-Structure your dataset like this to use your own files:
+## 📂 Dataset Structure
+
+Create a folder for each sample you want to optimize. The tool auto-discovers all sample folders:
 
 ```
 Dataset/
-├── images/           # Input images (jpg/png)
-│   ├── invoice-001.jpg
-├── prompts/          # Initial prompt text
-│   ├── invoice.txt
-└── outputs/          # Target valid JSON
-    ├── invoice.json
+├── worksheet_math/           # Sample 1
+│   ├── images/               # Input images (jpg/png)
+│   │   ├── page1.jpg
+│   │   └── page2.jpg
+│   ├── prompts/              # Initial prompt
+│   │   └── prompt.txt
+│   └── outputs/              # Target JSON
+│       └── expected.json
+│
+├── worksheet_physics/              # Sample 2
+│   ├── images/
+│   ├── prompts/
+│   └── outputs/
 ```
-*Note: Filenames must match the prefix (e.g., `invoice` in the example above).*
+
+**Results** are automatically saved by sample name:
+
+```
+Results/
+├── worksheet_math/
+│   ├── optimized_prompt.txt
+│   └── best_output.json
+├── worksheet_physics/
+│   └── optimized_prompt.txt
+│   └── best_output.json
+```
 
 ## 🤝 Contributing
 
 Contributions are always welcome! Please check out the [contribution guidelines](CONTRIBUTING.md) first.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
