@@ -11,11 +11,10 @@ def main():
     parser.add_argument("--dataset", type=str, default="Dataset", help="Path to dataset directory")
     parser.add_argument("--iterations", type=int, default=10, help="Number of optimization iterations")
     parser.add_argument("--test-model", type=str, default="gpt-4o-mini", help="Student model used for testing prompts (e.g., gpt-4o-mini, gemini-2.0-flash)")
-    parser.add_argument("--improve-model", type=str, default="gpt-5", help="Teacher model used for improving prompts (e.g., gpt-5, gemini-3-pro)")
+    parser.add_argument("--improve-model", type=str, default="gpt-5", help="Teacher model used for improving prompts (e.g., gpt-5, gemini-3-pro-preview)")
     
     args = parser.parse_args()
     
-    # Auto-detect providers from model names
     test_provider = infer_provider(args.test_model)
     improve_provider = infer_provider(args.improve_model)
     

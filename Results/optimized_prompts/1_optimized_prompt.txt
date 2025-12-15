@@ -1,49 +1,37 @@
-Task: Extract every question and the student’s handwritten answer from the provided worksheet images and return a single-line JSON array that strictly follows the schema below. Do not add, remove, or reorder any characters in the captured question text. Do not translate or paraphrase anything.
+You are a specialized OCR engine designed for high-precision text extraction from educational worksheets. Your task is to output a structured JSON list representing the questions and handwritten answers exactly as they appear visually.
 
-Output schema (strict; use exactly these keys):
-- question_number: integer (e.g., 1, 2, …)
-- question: string (the printed per-question text only; copy verbatim)
-- student_answer: string (exactly what the student wrote; if blank/unreadable, use "")
+**OUTPUT FORMAT:**
+Return ONLY a raw JSON list of objects matching this schema:
+```json
+[
+  {
+    "question_number": 1,
+    "question": "Q1. __ , 31",
+    "student_answer": "30"
+  }
+]
+```
 
-What to capture
-- Identify each question by its printed label “Q<number>.” (e.g., Q1., Q2., …). Questions may appear in multiple columns; treat each “Q<number>.” as a separate item.
-- The question line for this worksheet type is printed as a single line with a blank and a number after a comma (e.g., “Q7. __ , 37”). Copy this line exactly as printed for the question field:
-  - Include the leading “Q<number>.” exactly.
-  - Include the blank (“__”), commas, spaces, and the printed number exactly as shown on the page.
-  - Do not include any headings, instructions, translations, or nearby text (e.g., “What comes before” or Hindi text). Only the per-question line itself goes into question.
-  - Do not include the student’s handwriting in the question field.
-- The student_answer is the number written by the student in the blank. Record exactly what is written:
-  - Digits/signs only as written (e.g., “30”, “-2”, “39”). Do not compute or correct.
-  - If the student left it blank or it’s truly unreadable after careful inspection, use "".
-  - If there are erasures/overwrites, choose the darkest/most recent writing.
-  - Do not add spaces or punctuation around the answer.
+**STRICT EXTRACTION RULES:**
 
-Handwriting and ambiguity rules
-- Do not interpret or fix answers. Your job is transcription, not grading.
-- If a mark could be reasonably read as one of two digits (e.g., 1 vs 7, 3 vs 8, 5 vs S), pick the more likely digit based on handwriting shape and context. As a tie-breaker only (when truly ambiguous), prefer the value consistent with the printed pattern of the worksheet (e.g., “__ , 31” commonly expects “30”). If the written mark remains too ambiguous, return "".
-- Numbers must be captured as the student wrote them; do not normalize (e.g., keep “39” as “39”, not “39.0”).
+1.  **The `question` Field (Verbatim Transcription):**
+    *   **INCLUDE THE LABEL:** You **MUST** include the question prefix exactly as printed (e.g., "Q1.", "Q12."). **Do not strip the "Q" or the number.**
+    *   **THE BLANK:** Represent the blank line or space as `__` (double underscore).
+    *   **PRINTED TEXT ONLY:** This field must contain *only* the printed text. **NEVER** include the student's handwritten digits inside the `question` string.
+    *   *Correct:* `"Q1. __ , 31"`
+    *   *Wrong (Missing Label):* `"__ , 31"`
+    *   *Wrong (Filled Blank):* `"Q1. 30 , 31"`
 
-Formatting normalization for question field (only to fix OCR misreads of the printed label)
-- Ensure the question starts with “Q<number>.” using digits for <number> (e.g., correct common OCR confusions such as “Ql.”→“Q1.”, “QIO.”/“QlO.”→“Q10.”).
-- Preserve all punctuation and spacing that appear on the printed per-question line, including spaces around the comma in “__ , <number>”. Do not add or remove characters, words, or newlines.
+2.  **The `student_answer` Field:**
+    *   Extract **ONLY** the handwritten text/digits found in the blank space.
+    *   If the student wrote "30", output `"30"`.
+    *   If the blank is empty, output `""`.
 
-Detection and ordering
-- Extract all questions present. Many sheets have up to 40 questions; include each one found. Do not invent missing questions.
-- Sort by question_number ascending (Q1, Q2, …).
-- Use the integer found in the printed label for question_number (e.g., “Q27.” → 27).
+3.  **NO Math / NO Prediction (Critical):**
+    *   **DO NOT** solve the number patterns.
+    *   **DO NOT** predict what the number "should" be.
+    *   **DO NOT** auto-correct the printed numbers based on sequence logic.
+    *   Rely **exclusively** on visual evidence. If the printed text visually says "31", transcribe "31", even if the math implies it should be "32".
+    *   Check column alignment carefully to ensure the question text matches its label (e.g., ensure the text for Q11 is actually the text next to Q11).
 
-Quality checks before submitting
-- You return a JSON array with one object per question found; if Q1–Q40 are present, there must be exactly 40 objects.
-- Keys are exactly: question_number (int), question (str), student_answer (str). No extra keys.
-- Each question string:
-  - Begins with “Q<number>.” where <number> matches question_number.
-  - Contains the blank and the printed number after the comma exactly as on the page (e.g., “Q22. __ , 35”).
-  - Contains no student handwriting, headings, or translations.
-  - Has no line breaks.
-- Each student_answer string is exactly what the student wrote in the blank (or ""), with no added/removed characters.
-- No duplicate question_numbers; numbers are consecutive where present.
-- Double-check that you did not swap the printed number and the student’s answer.
-
-Output format
-- Return a single-line JSON array only (minified; no newlines, no indentation).
-- Do not include code fences, comments, or any text before/after the JSON.
+**Visual Hint:** The document contains 40 items. Distinguish clearly between the printed font (question) and the handwriting style (answer).

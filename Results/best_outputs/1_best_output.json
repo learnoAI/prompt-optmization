@@ -47,57 +47,57 @@
   {
     "question_number": 10,
     "question": "Q10. __ , 40",
-    "student_answer": "39"
+    "student_answer": "74"
   },
   {
     "question_number": 11,
-    "question": "Q11. __ , 30",
+    "question": "Q11. __ , 32",
     "student_answer": "30"
   },
   {
     "question_number": 12,
-    "question": "Q12. __ , 32",
-    "student_answer": "31"
+    "question": "Q12. __ , 33",
+    "student_answer": "32"
   },
   {
     "question_number": 13,
     "question": "Q13. __ , 34",
-    "student_answer": "33"
-  },
-  {
-    "question_number": 14,
-    "question": "Q14. __ , 36",
-    "student_answer": "35"
-  },
-  {
-    "question_number": 15,
-    "question": "Q15. __ , 38",
-    "student_answer": "37"
-  },
-  {
-    "question_number": 16,
-    "question": "Q16. __ , 40",
-    "student_answer": "39"
-  },
-  {
-    "question_number": 17,
-    "question": "Q17. __ , 33",
-    "student_answer": "32"
-  },
-  {
-    "question_number": 18,
-    "question": "Q18. __ , 35",
     "student_answer": "34"
   },
   {
+    "question_number": 14,
+    "question": "Q14. __ , 37",
+    "student_answer": "26"
+  },
+  {
+    "question_number": 15,
+    "question": "Q15. __ , 39",
+    "student_answer": "28"
+  },
+  {
+    "question_number": 16,
+    "question": "Q16. __ , 32",
+    "student_answer": "31"
+  },
+  {
+    "question_number": 17,
+    "question": "Q17. __ , 34",
+    "student_answer": "23"
+  },
+  {
+    "question_number": 18,
+    "question": "Q18. __ , 36",
+    "student_answer": "35"
+  },
+  {
     "question_number": 19,
-    "question": "Q19. __ , 37",
-    "student_answer": "36"
+    "question": "Q19. __ , 38",
+    "student_answer": "37"
   },
   {
     "question_number": 20,
-    "question": "Q20. __ , 39",
-    "student_answer": "38"
+    "question": "Q20. __ , 40",
+    "student_answer": "29"
   },
   {
     "question_number": 21,
@@ -151,13 +151,13 @@
   },
   {
     "question_number": 31,
-    "question": "Q31. __ , 34",
-    "student_answer": "33"
+    "question": "Q31. __ , 32",
+    "student_answer": "37"
   },
   {
     "question_number": 32,
-    "question": "Q32. __ , 32",
-    "student_answer": "31"
+    "question": "Q32. __ , 33",
+    "student_answer": "32"
   },
   {
     "question_number": 33,
@@ -166,13 +166,13 @@
   },
   {
     "question_number": 34,
-    "question": "Q34. __ , 33",
-    "student_answer": "32"
+    "question": "Q34. __ , 34",
+    "student_answer": "36"
   },
   {
     "question_number": 35,
-    "question": "Q35. __ , 37",
-    "student_answer": "36"
+    "question": "Q35. __ , 40",
+    "student_answer": "39"
   },
   {
     "question_number": 36,
@@ -191,8 +191,8 @@
   },
   {
     "question_number": 39,
-    "question": "Q39. __ , 39",
-    "student_answer": "38"
+    "question": "Q39. __ , 38",
+    "student_answer": "36"
   },
   {
     "question_number": 40,

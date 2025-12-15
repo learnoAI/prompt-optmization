@@ -49,7 +49,7 @@ This project is an open-source tool designed to help developers and students mas
 
 Run the optimizer via the CLI. The tool uses two models:
 1.  **Student Model (Test Model):** The generally smaller/cheaper model you want to optimize the prompt for (e.g., `gpt-4o-mini`, `gemini-2.0-flash`).
-2.  **Teacher Model (Improve Model):** A stronger, reasoning-capable model that analyzes errors and writes better prompts (e.g., `gpt-5`, `gemini-3-pro`).
+2.  **Teacher Model (Improve Model):** A stronger, reasoning-capable model that analyzes errors and writes better prompts (e.g., `gpt-5`, `gemini-3-pro-preview`).
 
 > [!TIP]
 > The provider (OpenAI or Gemini) is **automatically detected** from the model name. No need to specify it manually!
@@ -59,7 +59,7 @@ Run the optimizer via the CLI. The tool uses two models:
 python main.py --iterations 10 --test-model gpt-4o-mini --improve-model gpt-5
 
 # Example: Using Gemini models
-python main.py --iterations 5 --test-model gemini-2.0-flash --improve-model gemini-3-pro
+python main.py --iterations 5 --test-model gemini-2.0-flash --improve-model gemini-3-pro-preview
 ```
 
 | Argument | Description | Default |

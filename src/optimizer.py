@@ -1,13 +1,68 @@
 
 import os
 import json
-import base64
+import re
 import numpy as np
 from openai import OpenAI
 from google import genai
 from google.genai import types
 from .evaluator import embed_text, cosine
 from .utils import encode_image_to_base64, get_image_mime_type
+
+
+def clean_json_response(text: str) -> str:
+    if not text:
+        return text
+    
+    text = text.strip()
+    
+    code_fence_pattern = r'^```(?:json)?\s*\n?(.*?)\n?```$'
+    match = re.match(code_fence_pattern, text, re.DOTALL | re.IGNORECASE)
+    if match:
+        text = match.group(1).strip()
+    
+    if text.startswith('```'):
+        first_newline = text.find('\n')
+        if first_newline != -1:
+            text = text[first_newline + 1:]
+    
+    if text.endswith('```'):
+        text = text[:-3]
+    
+    text = text.strip()
+    
+    if not text.startswith(('[', '{')):
+        array_start = text.find('[')
+        object_start = text.find('{')
+        
+        if array_start != -1 and (object_start == -1 or array_start < object_start):
+            text = text[array_start:]
+        elif object_start != -1:
+            text = text[object_start:]
+    
+    if text.startswith('['):
+        bracket_count = 0
+        for i, char in enumerate(text):
+            if char == '[':
+                bracket_count += 1
+            elif char == ']':
+                bracket_count -= 1
+                if bracket_count == 0:
+                    text = text[:i + 1]
+                    break
+    elif text.startswith('{'):
+        brace_count = 0
+        for i, char in enumerate(text):
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    text = text[:i + 1]
+                    break
+    
+    return text
+
 
 class PromptOptimizer:
     def __init__(self, openai_api_key=None, gemini_api_key=None):
@@ -21,11 +76,11 @@ class PromptOptimizer:
         input_images: list[str],
         iterations: int = 10,
         test_model: str = "gemini-2.0-flash",
-        improve_model: str = "gemini-3-pro",
+        improve_model: str = "gemini-3-pro-preview",
         test_model_provider: str = 'gemini',
         improve_model_provider: str = 'gemini'
     ):
-        if isinstance(target_json_output, dict):
+        if isinstance(target_json_output, dict) or isinstance(target_json_output, list):
             target_json_output = json.dumps(target_json_output, indent=2)
 
         target_vec = embed_text(target_json_output)
@@ -103,7 +158,7 @@ class PromptOptimizer:
                     system_instruction="You are an helpful AI assistant.",
                     prompt=instruction
                 )
-                print("improved prompt")
+                print("Improved prompt generated")
 
             raw_output = self._test_prompt(
                 prompt=current_prompt,
@@ -112,14 +167,18 @@ class PromptOptimizer:
                 provider=test_model_provider
             )
 
-            try:
-                parsed = json.loads(raw_output)
-                normalized_output = json.dumps(parsed, indent=2)
-            except json.JSONDecodeError:
-                print("response was not a json")
-                normalized_output = raw_output
+            cleaned_output = clean_json_response(raw_output)
 
-            out_vec = embed_text(normalized_output, client=self.openai_client)
+            try:
+                parsed = json.loads(cleaned_output)
+                normalized_output = json.dumps(parsed, indent=2)
+                print("Valid JSON response")
+            except json.JSONDecodeError as e:
+                print(f"Response was not valid JSON: {str(e)[:50]}")
+                # Still use cleaned output for scoring, but mark it
+                normalized_output = cleaned_output
+
+            out_vec = embed_text(normalized_output)
             score = cosine(out_vec, target_vec)
             print(f"Score: {score:.4f}")
 
@@ -127,9 +186,9 @@ class PromptOptimizer:
                 best_score = score
                 best_prompt = current_prompt
                 best_output = normalized_output
-                print(f"new best score: {best_score:.4f}")
+                print(f"New best score: {best_score:.4f}")
 
-            print(f"best Score So Far: {best_score:.4f}")
+            print(f"Best score so far: {best_score:.4f}")
 
             previous_output = normalized_output
             previous_score = score
