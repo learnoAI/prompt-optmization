@@ -11,7 +11,7 @@ def main():
     parser.add_argument("--dataset", type=str, default="Dataset", help="Path to dataset directory")
     parser.add_argument("--iterations", type=int, default=10, help="Number of optimization iterations")
     parser.add_argument("--test-model", type=str, default="gpt-4o-mini", help="Student model used for testing prompts (e.g., gpt-4o-mini, gemini-2.0-flash)")
-    parser.add_argument("--improve-model", type=str, default="gpt-4o", help="Teacher model used for improving prompts (e.g., gpt-4o, gemini-1.5-pro)")
+    parser.add_argument("--improve-model", type=str, default="gpt-5", help="Teacher model used for improving prompts (e.g., gpt-5, gemini-3-pro)")
     
     args = parser.parse_args()
     
@@ -27,7 +27,6 @@ def main():
     outputs_folder = os.path.join(dataset_path, "outputs")
     images_folder = os.path.join(dataset_path, "images")
     
-    # Ensure results directory exists
     os.makedirs(os.path.join("Results", "optimized_prompts"), exist_ok=True)
     os.makedirs(os.path.join("Results", "best_outputs"), exist_ok=True)
     
@@ -79,7 +78,6 @@ def main():
             improve_model_provider=improve_provider
         )
         
-        # Save results
         with open(os.path.join("Results", "optimized_prompts", f"{sample_id}_optimized_prompt.txt"), "w", encoding="utf-8") as f:
             f.write(best_prompt)
         

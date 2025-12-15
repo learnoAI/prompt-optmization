@@ -20,15 +20,15 @@ class PromptOptimizer:
         target_json_output,
         input_images: list[str],
         iterations: int = 10,
-        test_model: str = "gpt-4o-mini",
-        improve_model: str = "gpt-5",
-        test_model_provider: str = "openai",
-        improve_model_provider: str = "openai"
+        test_model: str = "gemini-2.0-flash",
+        improve_model: str = "gemini-3-pro",
+        test_model_provider: str = 'gemini',
+        improve_model_provider: str = 'gemini'
     ):
         if isinstance(target_json_output, dict):
             target_json_output = json.dumps(target_json_output, indent=2)
 
-        target_vec = embed_text(target_json_output, client=self.openai_client)
+        target_vec = embed_text(target_json_output)
         current_prompt = initial_prompt
         best_prompt = initial_prompt
         best_score = -1.0
@@ -148,12 +148,6 @@ class PromptOptimizer:
             return response.choices[0].message.content.strip()
         
         elif provider.lower() == "gemini":
-            # Gemini Python SDK usually takes system instruction in generation config or just as context, 
-            # but simpler is to just prepend/append or use the system_instruction arg if available.
-            # Using the genai.Client (Google Gen AI SDK v1beta/v1)
-            # The client.models.generate_content signature supports 'config'
-            
-            # For simplicity with the unified client used earlier:
             response = self.gemini_client.models.generate_content(
                 model=model,
                 config=types.GenerateContentConfig(system_instruction=system_instruction),
@@ -198,7 +192,6 @@ class PromptOptimizer:
                 model=model,
                 contents=content_parts
             )
-            # Handle cases where response might be blocked or empty
             if not response.text:
                  return '{"error": "empty response"}'
             return response.text

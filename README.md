@@ -13,7 +13,7 @@
 
 ## 📖 About
 
-This project is an open-source tool designed to help developers and students master prompt engineering for OCR tasks. It uses an iterative "teacher-student" loop where a stronger model (like GPT-4o) critiques and improves the prompts used by a faster/cheaper model (like GPT-4o-mini or Gemini Flash).
+This project is an open-source tool designed to help developers and students master prompt engineering for OCR tasks. It uses an iterative "teacher-student" loop where a stronger model (like GPT-5) critiques and improves the prompts used by a faster/cheaper model (like GPT-4o-mini or Gemini Flash).
 
 **Author:** [ayam04](https://github.com/ayam04)
 
@@ -21,7 +21,7 @@ This project is an open-source tool designed to help developers and students mas
 
 -   **🤖 LLM-Driven Optimization:** Automatically improves prompts over multiple iterations based on ground truth.
 -   **🔄 Feedback Loop:** Uses a "teacher" model to analyze errors and suggest specific fixes.
--   **📊 Vector-Based Scoring:** Evaluates output quality using cosine similarity of embeddings.
+-   **📊 Local Vector Scoring:** Evaluates output quality using cosine similarity with [fastembed](https://github.com/qdrant/fastembed) (no API costs!).
 -   **🔌 Multi-Provider Support:** Seamlessly switch between OpenAI and Google Gemini models.
 -   **📂 Custom Dataset Support:** easily plug in your own images and target JSONs.
 
@@ -29,7 +29,7 @@ This project is an open-source tool designed to help developers and students mas
 
 1.  **Clone the repository**
     ```bash
-    git clone https://github.com/ayam04/prompt-optimization.git
+    git clone https://github.com/learnoAI/prompt-optimization.git
     cd gepa-tests
     ```
 
@@ -49,20 +49,17 @@ This project is an open-source tool designed to help developers and students mas
 
 Run the optimizer via the CLI. The tool uses two models:
 1.  **Student Model (Test Model):** The generally smaller/cheaper model you want to optimize the prompt for (e.g., `gpt-4o-mini`, `gemini-2.0-flash`).
-2.  **Teacher Model (Improve Model):** A stronger, reasoning-capable model that analyzes errors and writes better prompts (e.g., `gpt-4o`, `gemini-1.5-pro`).
+2.  **Teacher Model (Improve Model):** A stronger, reasoning-capable model that analyzes errors and writes better prompts (e.g., `gpt-5`, `gemini-3-pro`).
 
 > [!TIP]
 > The provider (OpenAI or Gemini) is **automatically detected** from the model name. No need to specify it manually!
 
 ```bash
 # Example: Using OpenAI models
-python main.py --iterations 10 --test-model gpt-4o-mini --improve-model gpt-4o
+python main.py --iterations 10 --test-model gpt-4o-mini --improve-model gpt-5
 
 # Example: Using Gemini models
-python main.py --iterations 5 --test-model gemini-2.0-flash --improve-model gemini-1.5-pro
-
-# Example: Mix and match providers
-python main.py --test-model gemini-2.0-flash --improve-model gpt-4o
+python main.py --iterations 5 --test-model gemini-2.0-flash --improve-model gemini-3-pro
 ```
 
 | Argument | Description | Default |
@@ -70,7 +67,7 @@ python main.py --test-model gemini-2.0-flash --improve-model gpt-4o
 | `--dataset` | Path to dataset directory | `Dataset` |
 | `--iterations` | Number of optimization loops | `10` |
 | `--test-model` | **Student:** Model to accept the prompt | `gpt-4o-mini` |
-| `--improve-model` | **Teacher:** Model for feedback | `gpt-4o` |
+| `--improve-model` | **Teacher:** Model for feedback | `gpt-5` |
 
 ## 📂 bringing Your Own Data
 
