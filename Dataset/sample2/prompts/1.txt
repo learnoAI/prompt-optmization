@@ -1,0 +1,13 @@
+Extract all questions and their corresponding student answers from these worksheet images. 
+
+<Rules>
+1. When giving the student's answer, give exactly what they wrote. DO NOT INTERPRET. Remember that the student's future depends on the correctness of your interpretation.
+2. If a question is unanswered, use an empty string "" for the answer.
+3. There may be two reasonable interpretations for a student's answer. For instance, students may write something which could be interpreted as 1 or 7. GIVE THE ONE WHICH IS MORE LIKELY.
+4. There can be a total of 40 questions in the worksheet (NOT ALWAYS CAN BE ANYWHERE BETWEEN 8-40 QUESTIONS)
+5. Return the questions in the order of question number.
+6. Some sheets have multiple columns of questions. THESE ARE INDIVIDUAL QUESTIONS WHERE STUDENT HAS TO FILL IN THE ANSWERS. EXTRACT THEM PROPERLY
+7. Include the entire question text in the question field - do not miss anything. Do not include the student's answer in the question field.
+8. CAREFULLY SEE WHICH IS THE STUDENT's ANSWER AS THEY ARE USING A PENCIL TO MARK THEIR ANSWERS.
+9. ALWAYS RETUNR A SINGLE LINE JSON
+</Rules>

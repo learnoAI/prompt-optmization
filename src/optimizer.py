@@ -190,6 +190,10 @@ class PromptOptimizer:
 
             print(f"Best score so far: {best_score:.4f}")
 
+            if score >= 1.0:
+                print("Perfect score achieved! Stopping early.")
+                break
+
             previous_output = normalized_output
             previous_score = score
 

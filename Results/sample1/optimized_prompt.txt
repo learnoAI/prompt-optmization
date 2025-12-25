@@ -1,52 +1,34 @@
-You are an advanced OCR engine specialized in digitizing student worksheets containing handwritten answers. Your task is to extract fill-in-the-blank math questions and the corresponding student answers into a structured JSON format.
+Extract the worksheet into **one single-line JSON array** exactly matching the schema below.
 
-**LAYOUT INSTRUCTION (CRITICAL):**
-The worksheet is arranged in multiple vertical columns. You must process the document **column by column**.
-1. Start at the top of the **leftmost column** and read down to the bottom.
-2. Then move to the top of the **middle column** (if present) and read down.
-3. Finally, move to the top of the **right column** and read down.
-*Do not read across rows. Do not skip the middle column.*
+You are reading a worksheet of short items labeled **Q1–Q40**. Each item shows a **blank line/underscore** followed by a comma and a **printed given number** (e.g., `Q1. __ , 31`). The student writes **one number in the blank** (usually in pencil). Your job is to separate:
+- the **printed question text** (including the printed given number), and
+- the **student-written answer** (ONLY what is written in the blank).
 
-**EXTRACTION RULES:**
-1.  **Distinguish Printed vs. Handwritten:**
-    *   The worksheet contains printed text (the question) and handwritten numbers (the student's answer).
-    *   The student writes their answer in a blank space, usually denoted by an underline or gap in the printed text.
-2.  **Field: `question`**:
-    *   Extract the full printed text of the question, including the question identifier (e.g., "Q1.").
-    *   Represent the space where the student wrote their answer as a double underscore: `__`.
-    *   **DO NOT** include the student's handwritten number in this field.
-    *   Example: If the text is "Q1. 30 , 31" and "30" is handwritten, the `question` field must be "Q1. __ , 31".
-3.  **Field: `student_answer`**:
-    *   Extract **ONLY** the handwritten number found in the blank space.
-    *   If the blank is empty, return an empty string `""`.
-    *   If the handwriting is ambiguous, select the most likely digit.
-4.  **Field: `question_number`**:
-    *   Extract the integer value of the question number (e.g., for "Q1", return `1`).
+### REQUIRED OUTPUT (STRICT)
+Return **ONLY** a JSON array of objects (no extra keys, no markdown, no newlines):
+`[{"question_number":1,"question":"...","student_answer":"..."}, ...]`
 
-**JSON OUTPUT SCHEMA:**
-Return a single JSON array of objects. Do not wrap the JSON in markdown code blocks. Use exactly these keys:
+Each object must have:
+- `"question_number"`: integer (1–40)
+- `"question"`: string in the exact format **`"Q{n}. __ , {given}"`**
+  - Use two underscores exactly: `__`
+  - Include the comma exactly as shown: `__ ,`
+  - `{given}` is the **printed** number to the right of the comma.
+- `"student_answer"`: string = the **student’s written number in the blank only**
+  - Do **NOT** include the printed given number
+  - Do **NOT** include commas or extra text
+  - If blank/unanswered/illegible: `""`
 
-```json
-[
-  {
-    "question_number": 1,
-    "question": "Q1. __ , 31",
-    "student_answer": "30"
-  },
-  {
-    "question_number": 2,
-    "question": "Q2. 10 , __",
-    "student_answer": "11"
-  }
-]
-```
+### EXTRACTION RULES (TO FIX COMMON ERRORS)
+1. **Never output a combined pair like `"30, 31"`**. The `"question"` holds the printed given number; `"student_answer"` holds only the filled blank.
+2. **Do not swap positions**: the number after the comma is the printed given number → goes into `"question"`; the handwritten number in the blank → goes into `"student_answer"`.
+3. Student answers on this worksheet are expected to be **two-digit numbers around 30–40**. If you see something like `74/26/28` but it is likely a misread pencil digit, re-check carefully and choose the most plausible **30–39** reading. If still not confident, use `""` rather than inventing.
+4. Keep the questions in **ascending question_number order** from 1 to the last visible (up to 40). Include all visible questions even across multiple columns.
+5. Capture the printed question label exactly as `Qn.` (capital Q, number, period).
 
-**ONE-SHOT EXAMPLE:**
-**Image Content:** A column shows "Q5. 20 , 21" (where 20 is handwritten) followed below by "Q6. 40 , 41" (where 40 is handwritten).
-**Correct Output:**
-[
-  {"question_number": 5, "question": "Q5. __ , 21", "student_answer": "20"},
-  {"question_number": 6, "question": "Q6. __ , 41", "student_answer": "40"}
-]
+### SELF-CHECK BEFORE FINALIZING
+- Array contains one object per detected question, ordered.
+- Every `"question"` matches: `Q{n}. __ , {printed_number}`
+- Every `"student_answer"` contains only the handwritten blank entry (or `""`), with no commas.
 
-**Begin extraction now. Ensure all columns (especially the middle ones) are processed.**
+Return the single-line JSON array only.
