@@ -12,7 +12,7 @@
 
 ## 📖 About
 
-This project is an open-source tool designed to help developers and students master prompt engineering for OCR tasks. It uses an iterative "teacher-student" loop where a stronger model (like GPT-4o) critiques and improves the prompts used by a faster/cheaper model (like GPT-4o-mini or Gemini Flash).
+This project is an open-source tool designed to help developers and students master prompt engineering for OCR tasks. It uses an iterative "teacher-student" loop where a stronger model (like GPT-5.2) critiques and improves the prompts used by a faster/cheaper model (like GPT-4o-mini or Gemini Flash).
 
 **Author:** [ayam04](https://github.com/ayam04)
 
@@ -54,12 +54,11 @@ Run the optimizer via the CLI. The tool uses two models:
 
 
 ```bash
-# Example: Using OpenAI models
 python main.py --iterations 5 --test-model gpt-4o-mini --improve-model gpt-5.2-2025-12-11
 
-# Example: Using Gemini models
 python main.py --iterations 5 --test-model gemini-2.0-flash --improve-model gemini-3-pro-preview
 ```
+
 
 | Argument | Description | Default |
 | :--- | :--- | :--- |
@@ -76,7 +75,7 @@ Create a folder for each sample you want to optimize. The tool auto-discovers al
 ```
 Dataset/
 ├── sample1/                  # Sample 1
-│   ├── images/               # Input images (jpg/png)
+│   ├── images/               # Input images (jpg/png/jpeg)
 │   │   ├── page1.jpg
 │   │   └── page2.jpg
 │   ├── prompts/              # Initial prompt
