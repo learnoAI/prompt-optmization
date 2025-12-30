@@ -25,8 +25,8 @@ This project is an open-source tool designed to help developers and students mas
 1.  **Clone the repository**
 
     ```bash
-    git clone https://github.com/learnoAI/prompt-optimization.git
-    cd prompt-optimization
+    git clone https://github.com/learnoAI/ocr-prompt-optimization.git
+    cd ocr-prompt-optimization
     ```
 
 2.  **Install dependencies**
