@@ -2,21 +2,40 @@
 import os
 import json
 import argparse
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from .optimizer import PromptOptimizer
 from .utils import infer_provider
 
+print_lock = threading.Lock()
 
-def discover_samples(dataset_path: str) -> list[dict]:
+def safe_print(*args, **kwargs):
+    with print_lock:
+        print(*args, **kwargs)
+
+
+def discover_samples(dataset_path: str, results_path: str = "Results", folder_filters: set = None) -> list[dict]:
     samples = []
-    
+    skipped_count = 0
+
     if not os.path.exists(dataset_path):
         print(f"Error: Dataset path not found: {dataset_path}")
         return samples
-    
+
     for folder_name in os.listdir(dataset_path):
         folder_path = os.path.join(dataset_path, folder_name)
-        
+
         if not os.path.isdir(folder_path):
+            continue
+            
+        # If filters are provided, only pick matching folders
+        if folder_filters and folder_name not in folder_filters:
+            continue
+
+        # Skip already optimized folders
+        optimized_prompt_path = os.path.join(results_path, folder_name, "optimized_prompt.txt")
+        if os.path.exists(optimized_prompt_path):
+            skipped_count += 1
             continue
         
         images_folder = os.path.join(folder_path, "images")
@@ -61,8 +80,67 @@ def discover_samples(dataset_path: str) -> list[dict]:
             "output_file": output_file,
             "images": images
         })
-    
+
+    if skipped_count > 0:
+        print(f"Skipped {skipped_count} already optimized folder(s)")
+
     return samples
+
+
+def process_sample(sample: dict, args, test_provider: str, improve_provider: str) -> dict:
+    sample_name = sample["name"]
+    
+    try:
+        safe_print(f"\n Starting: {sample_name}")
+        
+        optimizer = PromptOptimizer()
+        
+        with open(sample["prompt_file"], "r", encoding="utf-8") as f:
+            initial_prompt = f.read().strip()
+        
+        with open(sample["output_file"], "r", encoding="utf-8") as f:
+            target_json = json.load(f)
+        
+        safe_print(f"  📷 {sample_name}: {len(sample['images'])} images, {len(initial_prompt)} chars prompt")
+        
+        best_prompt, best_score, best_output = optimizer.optimize(
+            initial_prompt=initial_prompt,
+            target_json_output=target_json,
+            input_images=sample["images"],
+            iterations=args.iterations,
+            test_model=args.test_model,
+            improve_model=args.improve_model,
+            test_model_provider=test_provider,
+            improve_model_provider=improve_provider
+        )
+        
+        results_folder = os.path.join("Results", sample_name)
+        os.makedirs(results_folder, exist_ok=True)
+        
+        prompt_output_path = os.path.join(results_folder, "optimized_prompt.txt")
+        with open(prompt_output_path, "w", encoding="utf-8") as f:
+            f.write(best_prompt)
+        
+        output_path = os.path.join(results_folder, "best_output.json")
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(best_output)
+        
+        safe_print(f"✅ {sample_name}: score={best_score:.4f}")
+        
+        return {
+            "name": sample_name,
+            "success": True,
+            "best_score": best_score,
+            "results_folder": results_folder
+        }
+        
+    except Exception as e:
+        safe_print(f"❌ {sample_name}: Error - {e}")
+        return {
+            "name": sample_name,
+            "success": False,
+            "error": str(e)
+        }
 
 
 def main():
@@ -70,6 +148,12 @@ def main():
         description="OCR Prompt Optimizer & Evaluator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+            Usage examples:
+              python main.py --iterations 5
+              python main.py --1123 --1124           (Process specific folders)
+              python main.py --range-1120-1125       (Process a range of folders)
+              python main.py --1100 --range-1200-1205 (Mix and match)
+
             Dataset Structure:
             Dataset/
             ├── sample1/
@@ -100,8 +184,28 @@ def main():
                         help="Student model for testing prompts (e.g., gpt-4o-mini, gemini-2.0-flash)")
     parser.add_argument("--improve-model", type=str, default="gpt-4o", 
                         help="Teacher model for improving prompts (e.g., gpt-4o, gemini-1.5-pro)")
+    parser.add_argument("--workers", type=int, default=25, 
+                        help="Number of parallel workers (default: 25)")
     
-    args = parser.parse_args()
+    # Parse known args, leaving dynamic folder flags in 'unknown'
+    args, unknown = parser.parse_known_args()
+    
+    # Process dynamic folder flags like --1123 or --range-1120-1125
+    selected_folders = set()
+    for arg in unknown:
+        if arg.startswith("--range-"):
+            parts = arg.replace("--range-", "").split("-")
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                start = int(parts[0])
+                end = int(parts[1])
+                for i in range(start, end + 1):
+                    selected_folders.add(str(i))
+            else:
+                print(f"Warning: Ignoring invalid range format '{arg}'. Use --range-START-END")
+        elif arg.startswith("--") and arg[2:].isdigit():
+            selected_folders.add(arg[2:])
+        else:
+            print(f"Warning: Unrecognized argument ignored: {arg}")
     
     test_provider = infer_provider(args.test_model)
     improve_provider = infer_provider(args.improve_model)
@@ -109,9 +213,13 @@ def main():
     print(f"Test model: {args.test_model} (provider: {test_provider})")
     print(f"Improve model: {args.improve_model} (provider: {improve_provider})")
     print(f"Iterations per sample: {args.iterations}")
+    print(f"Parallel workers: {args.workers}")
+    if selected_folders:
+        print(f"Specific folders selected: {sorted(list(selected_folders))}")
     print("-" * 50)
     
-    samples = discover_samples(args.dataset)
+    # Pass the set of selected folders (if any) down to discover_samples
+    samples = discover_samples(args.dataset, folder_filters=selected_folders if selected_folders else None)
     
     if not samples:
         print(f"No valid sample folders found in {args.dataset}")
@@ -123,73 +231,40 @@ def main():
         print("      └── prompts/   (put initial prompt.txt here)")
         return
     
-    print(f"Found {len(samples)} sample(s): {[s['name'] for s in samples]}")
+    print(f"Found {len(samples)} sample(s)")
     print("=" * 50)
     
-    optimizer = PromptOptimizer()
     all_results = {}
+    success_count = 0
+    error_count = 0
     
-    for sample in samples:
-        sample_name = sample["name"]
-        print(f"\n{'='*50}")
-        print(f"Processing: {sample_name}")
-        print(f"{'='*50}")
-        
-        # Load prompt
-        with open(sample["prompt_file"], "r", encoding="utf-8") as f:
-            initial_prompt = f.read().strip()
-        
-        # Load target output
-        with open(sample["output_file"], "r", encoding="utf-8") as f:
-            target_json = json.load(f)
-        
-        print(f"Images: {len(sample['images'])}")
-        print(f"Prompt length: {len(initial_prompt)} chars")
-        
-        # Run optimization
-        best_prompt, best_score, best_output = optimizer.optimize(
-            initial_prompt=initial_prompt,
-            target_json_output=target_json,
-            input_images=sample["images"],
-            iterations=args.iterations,
-            test_model=args.test_model,
-            improve_model=args.improve_model,
-            test_model_provider=test_provider,
-            improve_model_provider=improve_provider
-        )
-        
-        # Create results folder for this sample
-        results_folder = os.path.join("Results", sample_name)
-        os.makedirs(results_folder, exist_ok=True)
-        
-        # Save optimized prompt
-        prompt_output_path = os.path.join(results_folder, "optimized_prompt.txt")
-        with open(prompt_output_path, "w", encoding="utf-8") as f:
-            f.write(best_prompt)
-        
-        # Save best output
-        output_path = os.path.join(results_folder, "best_output.json")
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(best_output)
-        
-        all_results[sample_name] = {
-            "best_score": best_score,
-            "results_folder": results_folder
+    with ThreadPoolExecutor(max_workers=args.workers) as executor:
+        future_to_sample = {
+            executor.submit(process_sample, sample, args, test_provider, improve_provider): sample
+            for sample in samples
         }
         
-        print(f"\nResults saved to: {results_folder}/")
-        print(f"  - optimized_prompt.txt")
-        print(f"  - best_output.json")
-        print(f"Final score: {best_score:.4f}")
+        for future in as_completed(future_to_sample):
+            result = future.result()
+            
+            if result["success"]:
+                all_results[result["name"]] = {
+                    "best_score": result["best_score"],
+                    "results_folder": result["results_folder"]
+                }
+                success_count += 1
+            else:
+                error_count += 1
     
-    # Print summary
     print("\n" + "=" * 50)
     print("OPTIMIZATION COMPLETE")
     print("=" * 50)
     
-    for name, result in all_results.items():
+    for name, result in sorted(all_results.items(), key=lambda x: x[1]['best_score'], reverse=True):
         print(f"  {name}: score={result['best_score']:.4f}")
     
+    print(f"\nSuccessful: {success_count}")
+    print(f"Errors: {error_count}")
     print(f"\nAll results saved in Results/ folder")
 
 

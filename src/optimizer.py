@@ -2,12 +2,47 @@
 import os
 import json
 import re
+import time
+import threading
 import numpy as np
 from openai import OpenAI
 from google import genai
 from google.genai import types
 from .evaluator import embed_text, cosine
 from .utils import encode_image_to_base64, get_image_mime_type
+
+
+class GeminiRateLimiter:
+    """Rate limiter for Gemini API calls (25 requests/minute limit)."""
+
+    def __init__(self, max_requests: int = 20, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = []
+        self.lock = threading.Lock()
+
+    def wait_if_needed(self):
+        """Block until a request can be made within rate limits."""
+        with self.lock:
+            now = time.time()
+            # Remove requests outside the window
+            self.requests = [t for t in self.requests if now - t < self.window_seconds]
+
+            if len(self.requests) >= self.max_requests:
+                # Wait until the oldest request falls outside the window
+                wait_time = self.window_seconds - (now - self.requests[0]) + 0.5
+                if wait_time > 0:
+                    print(f"Rate limit reached, waiting {wait_time:.1f}s...")
+                    time.sleep(wait_time)
+                    # Clean up again after waiting
+                    now = time.time()
+                    self.requests = [t for t in self.requests if now - t < self.window_seconds]
+
+            self.requests.append(time.time())
+
+
+# Global rate limiter for Gemini
+_gemini_rate_limiter = GeminiRateLimiter()
 
 
 def clean_json_response(text: str) -> str:
@@ -75,6 +110,29 @@ class PromptOptimizer:
             api_key=openrouter_api_key or os.getenv("OPENROUTER_API_KEY")
         )
 
+    def _call_gemini_with_retry(self, api_call, extract_text, max_retries: int = 5):
+        """Call Gemini API with rate limiting and retry on 429 errors."""
+        for attempt in range(max_retries):
+            _gemini_rate_limiter.wait_if_needed()
+            try:
+                response = api_call()
+                return extract_text(response)
+            except Exception as e:
+                error_str = str(e)
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                    # Extract retry delay from error message if available
+                    wait_time = 10  # default wait
+                    if "retry in" in error_str.lower():
+                        match = re.search(r'retry in (\d+\.?\d*)', error_str.lower())
+                        if match:
+                            wait_time = float(match.group(1)) + 1
+
+                    if attempt < max_retries - 1:
+                        print(f"Rate limited, retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})...")
+                        time.sleep(wait_time)
+                        continue
+                raise
+
     def optimize(
         self,
         initial_prompt: str,
@@ -87,9 +145,11 @@ class PromptOptimizer:
         improve_model_provider: str = 'gemini'
     ):
         if isinstance(target_json_output, dict) or isinstance(target_json_output, list):
-            target_json_output = json.dumps(target_json_output, indent=2)
+            target_json_output_str = json.dumps(target_json_output, indent=2)
+        else:
+            target_json_output_str = str(target_json_output)
 
-        target_vec = embed_text(target_json_output)
+        target_vec = embed_text(target_json_output_str)
         current_prompt = initial_prompt
         best_prompt = initial_prompt
         best_score = -1.0
@@ -97,6 +157,29 @@ class PromptOptimizer:
         feedback_history = []
         previous_output = ""
         previous_score = 0.0
+
+        print("\n--- Pre-evaluating Worksheet Context ---")
+        context_eval_instruction = """
+        You are an expert educational analyst. Look at the provided worksheet images and its target JSON output.
+        Identify the following key factors to help write better OCR instructions:
+        1. **Question Type:** (e.g., addition, sequence, matching, word problem)
+        2. **Examples Present:** Are there any solved examples on the page? How are they formatted?
+        3. **Answer Format:** How does the student answer? (e.g., fill in the blanks, circling, drawing lines, writing in boxes)
+        4. **Structural Quirks:** Any unique layout features (e.g., vertical columns, scattered text, specific numbering format like 'Q1.')
+        
+        Keep your assessment concise, accurate, and bulleted.
+        """
+        
+        worksheet_context = self._test_prompt(
+            prompt=context_eval_instruction + f"\n\nTARGET JSON:\n{target_json_output_str}",
+            input_images=input_images,
+            model=improve_model, # Use the bigger model for evaluation
+            provider=improve_model_provider
+        )
+        print("Worksheet context evaluated.")
+        print("-" * 30)
+        print(worksheet_context)
+        print("-" * 30)
 
         for it in range(1, iterations + 1):
             print(f"\n--- Iteration {it} ---")
@@ -110,7 +193,7 @@ class PromptOptimizer:
                         3. Specific recommendations for prompt improvements
                         
                         TARGET JSON:
-                        {target_json_output}
+                        {target_json_output_str}
                         
                         MODEL OUTPUT:
                         {previous_output}
@@ -136,7 +219,12 @@ class PromptOptimizer:
                         Improve the prompt so a weaker OCR-model produces JSON exactly matching:
     
                         TARGET JSON:
-                        {target_json_output}
+                        {target_json_output_str}
+                        
+                        ---
+                        WORKSHEET CONTEXT & FEATURES (Identified by an Analyst):
+                        {worksheet_context}
+                        ---
     
                         CURRENT PROMPT:
                         {current_prompt}
@@ -149,9 +237,9 @@ class PromptOptimizer:
                         FEEDBACK FROM ANALYSIS:
                         {all_feedback}
     
-                        Based on the feedback, improve the prompt by:
+                        Based on the feedback and the worksheet context, improve the prompt by:
                         - addressing specific issues identified in the feedback
-                        - making instructions clearer and more precise
+                        - making instructions clearer and more precise based on the Worksheet Context (e.g. explicitly mentioning how to handle 'fill in the blanks' or 'examples' if present)
                         - enforcing JSON schema and structure
                         - improving extraction rules for text, numbers, layout
                         - reducing chance of hallucination
@@ -203,7 +291,9 @@ class PromptOptimizer:
             previous_output = normalized_output
             previous_score = score
 
-        return best_prompt, best_score, best_output
+        final_optimized_prompt = f"{best_prompt}\n\n=== WORKSHEET CONTEXT NOTES ===\n{worksheet_context}\n===============================\n"
+        
+        return final_optimized_prompt, best_score, best_output
 
     def _generate_text(self, model: str, provider: str, system_instruction: str, prompt: str) -> str:
         if provider.lower() == "openai":
@@ -217,13 +307,15 @@ class PromptOptimizer:
             return response.choices[0].message.content.strip()
         
         elif provider.lower() == "gemini":
-            response = self.gemini_client.models.generate_content(
-                model=model,
-                config=types.GenerateContentConfig(system_instruction=system_instruction),
-                contents=[prompt]
+            return self._call_gemini_with_retry(
+                lambda: self.gemini_client.models.generate_content(
+                    model=model,
+                    config=types.GenerateContentConfig(system_instruction=system_instruction),
+                    contents=[prompt]
+                ),
+                extract_text=lambda r: r.text.strip() if r.text else ""
             )
-            return response.text.strip() if response.text else ""
-            
+
         elif provider.lower() == "openrouter":
             response = self.openrouter_client.chat.completions.create(
                 model=model,
@@ -261,20 +353,20 @@ class PromptOptimizer:
             for img_path in input_images:
                 with open(img_path, "rb") as f:
                     img_bytes = f.read()
-                mime_type = get_image_mime_type(img_path) 
+                mime_type = get_image_mime_type(img_path)
                 content_parts.append(
                     types.Part.from_bytes(data=img_bytes, mime_type=mime_type)
                 )
             content_parts.append(prompt)
-            
-            response = self.gemini_client.models.generate_content(
-                model=model,
-                contents=content_parts
+
+            return self._call_gemini_with_retry(
+                lambda: self.gemini_client.models.generate_content(
+                    model=model,
+                    contents=content_parts
+                ),
+                extract_text=lambda r: r.text if r.text else '{"error": "empty response"}'
             )
-            if not response.text:
-                 return '{"error": "empty response"}'
-            return response.text
-        
+
         elif provider.lower() == "openrouter":
             # OpenRouter uses same format as OpenAI for vision
             content_parts = [{"type": "text", "text": prompt}]
